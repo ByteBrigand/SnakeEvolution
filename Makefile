@@ -2,10 +2,10 @@
 CC = gcc
 
 # Compiler flags
-CFLAGS = -Wall -Wextra -g -O2
+CFLAGS = -Wall -Wextra -O2
 
 # Libraries to link against
-LIBS = -lSDL2 -lSDL2_ttf -lm
+LIBS = -lSDL2 -lSDL2_ttf -lm -msse4.2
 
 # Target executable
 TARGET = snake_evo

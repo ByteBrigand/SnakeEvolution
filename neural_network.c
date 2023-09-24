@@ -2,9 +2,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <immintrin.h> 
 
 float sigmoid(float x){
-    return 1.0 / (1.0 + exp(-x));
+    return 1.0f / (1.0f + expf(-x));
 }
 
 void initializeNeuron(Neuron *neuron, int num_inputs){
@@ -61,6 +62,53 @@ void forwardPass(NeuralNetwork *nn, int8_t *input, int *output){
     }
 }
 
+void forwardPassSimple(NeuralNetwork *nn, int8_t *input, int *output){
+    for (int i = 0; i < nn->hidden_layer1.num_neurons; i++){
+        float sum = nn->hidden_layer1.neurons[i].bias;
+        for (int j = 0; j < nn->num_input; j++){
+            sum += input[j] * nn->hidden_layer1.neurons[i].weights[j];
+        }
+        nn->hidden_layer1.neurons[i].output = sigmoid(sum);
+    }
+
+    for (int i = 0; i < nn->output_layer.num_neurons; i++){
+        float sum = nn->output_layer.neurons[i].bias;
+        for (int j = 0; j < nn->hidden_layer1.num_neurons; j++){
+            sum += nn->hidden_layer1.neurons[j].output * nn->output_layer.neurons[i].weights[j];
+        }
+        nn->output_layer.neurons[i].output = sigmoid(sum);
+        if (i == 0 || nn->output_layer.neurons[i].output > nn->output_layer.neurons[*output].output){
+            *output = i;
+        }
+    }
+}
+
+void forwardPassOptimized(NeuralNetwork *nn, int8_t *input, int *output){
+    for (int i = 0; i < nn->hidden_layer1.num_neurons; i++){
+        __m128 sum_vec = _mm_set1_ps(nn->hidden_layer1.neurons[i].bias);
+        for (int j = 0; j < nn->num_input; j += 4){
+            __m128 input_vec = _mm_loadu_ps((float *)&input[j]);
+            __m128 weight_vec = _mm_loadu_ps(&nn->hidden_layer1.neurons[i].weights[j]);
+            sum_vec = _mm_add_ps(sum_vec, _mm_mul_ps(input_vec, weight_vec));
+        }
+        nn->hidden_layer1.neurons[i].output = sigmoid(_mm_cvtss_f32(sum_vec));
+    }
+
+    for (int i = 0; i < nn->output_layer.num_neurons; i++){
+        __m128 sum_vec = _mm_set1_ps(nn->output_layer.neurons[i].bias);
+        for (int j = 0; j < nn->hidden_layer1.num_neurons; j++){
+            __m128 hidden_output_vec = _mm_set1_ps(nn->hidden_layer1.neurons[j].output);
+            __m128 weight_vec = _mm_loadu_ps(&nn->output_layer.neurons[i].weights[j]);
+            sum_vec = _mm_add_ps(sum_vec, _mm_mul_ps(hidden_output_vec, weight_vec));
+        }
+        nn->output_layer.neurons[i].output = sigmoid(_mm_cvtss_f32(sum_vec));
+        if (i == 0 || nn->output_layer.neurons[i].output > nn->output_layer.neurons[*output].output){
+            *output = i;
+        }
+    }
+}
+
+
 void mutateNeuralNetwork(NeuralNetwork *nn, float rate, float magnitude){
     float mutateValue(float value, float magnitude){
         return value + (((float)rand() / RAND_MAX) * 2 - 1) * magnitude;
@@ -83,98 +131,65 @@ void mutateNeuralNetwork(NeuralNetwork *nn, float rate, float magnitude){
     }
 }
 
-int cleanupNeuralNetwork(NeuralNetwork *nn){
-    if (nn == NULL) {
+int cleanupNeuralNetwork(NeuralNetwork *nn) {
+    if(nn == NULL){
         fprintf(stderr, "Neural network pointer is NULL. Cannot clean up.\n");
         return -1;
     }
-
     int err = 0;
 
-    // Clean up hidden layer 1
-    if (nn->hidden_layer1.neurons != NULL) {
-        for(int i = 0; i < nn->hidden_layer1.num_neurons; i++){
-            if (nn->hidden_layer1.neurons[i].weights != NULL) {
-                free(nn->hidden_layer1.neurons[i].weights);
-                nn->hidden_layer1.neurons[i].weights = NULL;
-            } else {
-                fprintf(stderr, "Weights of neuron %d in hidden layer 1 are NULL.\n", i);
-                err = -1;
-            }
+    #define CLEANUP_LAYER(layer) \
+        if(nn->layer.neurons != NULL){ \
+            for(int i = 0; i < nn->layer.num_neurons; i++){ \
+                if(nn->layer.neurons[i].weights != NULL){ \
+                    free(nn->layer.neurons[i].weights); \
+                    nn->layer.neurons[i].weights = NULL; \
+                }else{ \
+                    fprintf(stderr, "Weights of neuron %d in " #layer " are NULL.\n", i); \
+                    err = -1; \
+                } \
+            } \
+            free(nn->layer.neurons); \
+            nn->layer.neurons = NULL; \
+        }else{ \
+            fprintf(stderr, "Neurons in " #layer " are NULL.\n"); \
+            err = -1; \
         }
-        free(nn->hidden_layer1.neurons);
-        nn->hidden_layer1.neurons = NULL;
-    } else {
-        fprintf(stderr, "Neurons in hidden layer 1 are NULL.\n");
-        err = -1;
-    }
 
-    // Clean up hidden layer 2
-    if (nn->hidden_layer2.neurons != NULL) {
-        for(int i = 0; i < nn->hidden_layer2.num_neurons; i++){
-            if (nn->hidden_layer2.neurons[i].weights != NULL) {
-                free(nn->hidden_layer2.neurons[i].weights);
-                nn->hidden_layer2.neurons[i].weights = NULL;
-            } else {
-                fprintf(stderr, "Weights of neuron %d in hidden layer 2 are NULL.\n", i);
-                err = -1;
-            }
-        }
-        free(nn->hidden_layer2.neurons);
-        nn->hidden_layer2.neurons = NULL;
-    } else {
-        fprintf(stderr, "Neurons in hidden layer 2 are NULL.\n");
-        err = -1;
-    }
+    CLEANUP_LAYER(hidden_layer1);
+    CLEANUP_LAYER(hidden_layer2);
+    CLEANUP_LAYER(output_layer);
 
-    // Clean up output layer
-    if (nn->output_layer.neurons != NULL) {
-        for(int i = 0; i < nn->output_layer.num_neurons; i++){
-            if (nn->output_layer.neurons[i].weights != NULL) {
-                free(nn->output_layer.neurons[i].weights);
-                nn->output_layer.neurons[i].weights = NULL;
-            } else {
-                fprintf(stderr, "Weights of neuron %d in output layer are NULL.\n", i);
-                err = -1;
-            }
-        }
-        free(nn->output_layer.neurons);
-        nn->output_layer.neurons = NULL;
-    } else {
-        fprintf(stderr, "Neurons in output layer are NULL.\n");
-        err = -1;
-    }
+    #undef CLEANUP_LAYER
 
     return err;
 }
 
 
-void copyWeights(NeuralNetwork *nn1, NeuralNetwork *nn2) {
-    if (nn1 == NULL || nn2 == NULL) {
+
+void copyWeights(NeuralNetwork *nn1, NeuralNetwork *nn2){
+    if(nn1 == NULL || nn2 == NULL){
         fprintf(stderr, "One of the Neural Network pointers is NULL.\n");
         return;
     }
     
-    // Copy weights and biases from hidden layer 1
-    for(int i = 0; i < nn1->hidden_layer1.num_neurons; i++) {
+    for(int i = 0; i < nn1->hidden_layer1.num_neurons; i++){
         nn2->hidden_layer1.neurons[i].bias = nn1->hidden_layer1.neurons[i].bias;
-        for(int j = 0; j < nn1->num_input; j++) {
+        for(int j = 0; j < nn1->num_input; j++){
             nn2->hidden_layer1.neurons[i].weights[j] = nn1->hidden_layer1.neurons[i].weights[j];
         }
     }
-    
-    // Copy weights and biases from hidden layer 2
-    for(int i = 0; i < nn1->hidden_layer2.num_neurons; i++) {
+
+    for(int i = 0; i < nn1->hidden_layer2.num_neurons; i++){
         nn2->hidden_layer2.neurons[i].bias = nn1->hidden_layer2.neurons[i].bias;
-        for(int j = 0; j < nn1->hidden_layer1.num_neurons; j++) {
+        for(int j = 0; j < nn1->hidden_layer1.num_neurons; j++){
             nn2->hidden_layer2.neurons[i].weights[j] = nn1->hidden_layer2.neurons[i].weights[j];
         }
     }
-    
-    // Copy weights and biases from output layer
-    for(int i = 0; i < nn1->output_layer.num_neurons; i++) {
+
+    for(int i = 0; i < nn1->output_layer.num_neurons; i++){
         nn2->output_layer.neurons[i].bias = nn1->output_layer.neurons[i].bias;
-        for(int j = 0; j < nn1->hidden_layer2.num_neurons; j++) {
+        for(int j = 0; j < nn1->hidden_layer2.num_neurons; j++){
             nn2->output_layer.neurons[i].weights[j] = nn1->output_layer.neurons[i].weights[j];
         }
     }
@@ -186,18 +201,13 @@ int saveWeightsToFile(NeuralNetwork *nn, const char *filename){
         fprintf(stderr, "Unable to open file for writing: %s\n", filename);
         return -1;
     }
-    
-    // Save weights and biases for each layer and neuron
+
     Layer *layers[] = {&nn->hidden_layer1, &nn->hidden_layer2, &nn->output_layer};
     for(int l = 0; l < 3; l++){
         Layer *layer = layers[l];
         for(int i = 0; i < layer->num_neurons; i++){
             Neuron *neuron = &layer->neurons[i];
-            
-            // Save weights
             fwrite(neuron->weights, sizeof(float), l == 0 ? nn->num_input : layer->num_neurons, file);
-            
-            // Save bias
             fwrite(&neuron->bias, sizeof(float), 1, file);
         }
     }
@@ -212,18 +222,13 @@ int loadWeightsFromFile(NeuralNetwork *nn, const char *filename){
         fprintf(stderr, "Unable to open file for reading: %s\n", filename);
         return -1;
     }
-    
-    // Load weights and biases for each layer and neuron
+
     Layer *layers[] = {&nn->hidden_layer1, &nn->hidden_layer2, &nn->output_layer};
     for(int l = 0; l < 3; l++){
         Layer *layer = layers[l];
         for(int i = 0; i < layer->num_neurons; i++){
             Neuron *neuron = &layer->neurons[i];
-            
-            // Load weights
             fread(neuron->weights, sizeof(float), l == 0 ? nn->num_input : layer->num_neurons, file);
-            
-            // Load bias
             fread(&neuron->bias, sizeof(float), 1, file);
         }
     }

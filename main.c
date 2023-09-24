@@ -16,7 +16,7 @@
 #define SRCH_SIZE 50
 #define SNAKE_COUNT 9
 #define NEURON_COUNT 5
-#define EVOLVE_TIME 8000
+#define EVOLVE_TIME 60000
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
@@ -33,6 +33,7 @@ typedef struct {
     Point position;
     NeuralNetwork brain;
     u32 foodsEaten;
+    u32 actionsSinceLastFood;
     bool touchWall;
     bool firstInit;
 } Snake;
@@ -40,14 +41,15 @@ typedef struct {
 
 int8_t map[MAP_SIZE][MAP_SIZE] = {0};
 u16 foodExisting = 0;
+u16 evolutionEvents = 0;
 Snake snakes[SNAKE_COUNT];
 int rendering = 1;
 
 
 // neural network architecture
 int num_input = SRCH_SIZE*SRCH_SIZE;
-int num_hidden1 = 4;
-int num_hidden2 = 4;
+int num_hidden1 = 6;
+int num_hidden2 = 5;
 int num_output = 5;
 
 float mutationRate = 0.2;
@@ -118,24 +120,31 @@ void updateGameLogic(u32 startTime){
             foodExisting--;
             map[snakes[s].position.x][snakes[s].position.y] = 0;
             spawnFoods();
+            snakes[s].actionsSinceLastFood = 0;
         }
         moveSnake(s);
+        snakes[s].actionsSinceLastFood++;
+        if(snakes[s].actionsSinceLastFood > 25){
+            mutateNeuralNetwork(&(snakes[s].brain), mutationRate, mutationMagnitude);
+            snakes[s].actionsSinceLastFood = 0;
+        }
     }
 }
 
 void initializeSnakes(){
     for(u8 s = 0; s < SNAKE_COUNT; s++){
-        u8 rectWidth = MAP_SIZE * 0.2;
-        u8 rectHeight = MAP_SIZE * 0.2;
+        u16 rectWidth = round(MAP_SIZE * 0.8);
+        u16 rectHeight = round(MAP_SIZE * 0.8);
 
-        u8 minX = (MAP_SIZE - rectWidth) / 2;
-        u8 minY = (MAP_SIZE - rectHeight) / 2;
+        u16 minX = (MAP_SIZE - rectWidth) / 2;
+        u16 minY = (MAP_SIZE - rectHeight) / 2;
 
         snakes[s].position.x = minX + rand() % rectWidth;
         snakes[s].position.y = minY + rand() % rectHeight;
 
         snakes[s].touchWall = false;
         snakes[s].foodsEaten = 0;
+        snakes[s].actionsSinceLastFood = 0;
 
         if(!snakes[s].firstInit){
             snakes[s].brain = createNeuralNetwork(num_input, num_hidden1, num_hidden2, num_output);
@@ -149,8 +158,10 @@ void initializeSnakes(){
 void evolveSnakes(){
     u8 bestSnakeIndex = 0;
     u16 maxFoodEaten = 0;
+    evolutionEvents++;
     for(u8 s = 0; s < SNAKE_COUNT; s++){
-        if(!snakes[s].touchWall && snakes[s].foodsEaten > maxFoodEaten){
+        //if(!snakes[s].touchWall && snakes[s].foodsEaten > maxFoodEaten){
+        if(snakes[s].foodsEaten > maxFoodEaten){
             maxFoodEaten = snakes[s].foodsEaten;
             bestSnakeIndex = s;
         }
@@ -165,7 +176,7 @@ void evolveSnakes(){
     }else{
         for(u8 s = 0; s < SNAKE_COUNT; s++){
             if(s != bestSnakeIndex){
-                mutateNeuralNetwork(&(snakes[s].brain), mutationRate*2, mutationMagnitude*2);
+                mutateNeuralNetwork(&(snakes[s].brain), mutationRate, mutationMagnitude);
             }
         }
     }
@@ -191,12 +202,13 @@ void moveSnake(int s){
             vision[(i - y_diff) * (j - x_diff)] = map[i][j];
         }
     }
-    forwardPass(&(snakes[s].brain), vision, &action);
+    forwardPassOptimized(&(snakes[s].brain), vision, &action);
 
     //printf(" action snake %d : %d \n", s, action);
 
     switch(action){
         case 0: // do nothing
+            //mutateNeuralNetwork(&(snakes[s].brain), mutationRate, mutationMagnitude);
             break;
         case 1: // up
             snakes[s].position.y = MAX(0, y - 1);
@@ -213,6 +225,7 @@ void moveSnake(int s){
     }
     if(snakes[s].position.y == 0 || snakes[s].position.y == (MAP_SIZE - 1) || snakes[s].position.x == 0 || snakes[s].position.x == (MAP_SIZE - 1)){
         snakes[s].touchWall = true;
+        mutateNeuralNetwork(&(snakes[s].brain), mutationRate, mutationMagnitude);
     }
 }
 
@@ -267,9 +280,18 @@ void renderGame(SDL_Renderer* renderer, TTF_Font* font){
         SDL_DestroyTexture(textTexture);
     }
 
+    char evolutionEventsText[32];
+    sprintf(evolutionEventsText, "E: %d", evolutionEvents);
+    SDL_Color textColor = { 255, 255, 255, 120 };
+    SDL_Surface* textSurface = TTF_RenderText_Solid(font, evolutionEventsText, textColor);
+    SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
+    SDL_Rect textRect = { 10, 10 + (10 * 30), textSurface->w, textSurface->h };
+    SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
+    SDL_FreeSurface(textSurface);
+    SDL_DestroyTexture(textTexture);
+
     char mutationRateText[32];
     sprintf(mutationRateText, "Mutation Rate: %.2f", mutationRate);
-    SDL_Color textColor = { 255, 255, 255, 120 };
     SDL_Surface* rateSurface = TTF_RenderText_Solid(font, mutationRateText, textColor);
     SDL_Texture* rateTexture = SDL_CreateTextureFromSurface(renderer, rateSurface);
     SDL_Rect rateRect = { 10, MAP_SIZE - 60, rateSurface->w, rateSurface->h };

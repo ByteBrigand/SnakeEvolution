@@ -24,6 +24,8 @@ typedef struct NeuralNetwork {
 
 NeuralNetwork createNeuralNetwork(int num_input, int num_hidden1, int num_hidden2, int num_output);
 void forwardPass(NeuralNetwork *nn, int8_t *input, int *output);
+void forwardPassSimple(NeuralNetwork *nn, int8_t *input, int *output);
+void forwardPassOptimized(NeuralNetwork *nn, int8_t *input, int *output);
 void mutateNeuralNetwork(NeuralNetwork *nn, float rate, float magnitude);
 int cleanupNeuralNetwork(NeuralNetwork *nn);
 void copyWeights(NeuralNetwork *nn1, NeuralNetwork *nn2);
