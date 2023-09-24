@@ -27,5 +27,8 @@ void forwardPass(NeuralNetwork *nn, int8_t *input, int *output);
 void mutateNeuralNetwork(NeuralNetwork *nn, float rate, float magnitude);
 int cleanupNeuralNetwork(NeuralNetwork *nn);
 void copyWeights(NeuralNetwork *nn1, NeuralNetwork *nn2);
+int saveWeightsToFile(NeuralNetwork *nn, const char *filename);
+int loadWeightsFromFile(NeuralNetwork *nn, const char *filename);
+
 
 #endif // NEURAL_NETWORK_H

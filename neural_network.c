@@ -180,4 +180,57 @@ void copyWeights(NeuralNetwork *nn1, NeuralNetwork *nn2) {
     }
 }
 
+int saveWeightsToFile(NeuralNetwork *nn, const char *filename){
+    FILE *file = fopen(filename, "wb");
+    if(file == NULL){
+        fprintf(stderr, "Unable to open file for writing: %s\n", filename);
+        return -1;
+    }
+    
+    // Save weights and biases for each layer and neuron
+    Layer *layers[] = {&nn->hidden_layer1, &nn->hidden_layer2, &nn->output_layer};
+    for(int l = 0; l < 3; l++){
+        Layer *layer = layers[l];
+        for(int i = 0; i < layer->num_neurons; i++){
+            Neuron *neuron = &layer->neurons[i];
+            
+            // Save weights
+            fwrite(neuron->weights, sizeof(float), l == 0 ? nn->num_input : layer->num_neurons, file);
+            
+            // Save bias
+            fwrite(&neuron->bias, sizeof(float), 1, file);
+        }
+    }
+
+    fclose(file);
+    return 0;
+}
+
+int loadWeightsFromFile(NeuralNetwork *nn, const char *filename){
+    FILE *file = fopen(filename, "rb");
+    if(file == NULL){
+        fprintf(stderr, "Unable to open file for reading: %s\n", filename);
+        return -1;
+    }
+    
+    // Load weights and biases for each layer and neuron
+    Layer *layers[] = {&nn->hidden_layer1, &nn->hidden_layer2, &nn->output_layer};
+    for(int l = 0; l < 3; l++){
+        Layer *layer = layers[l];
+        for(int i = 0; i < layer->num_neurons; i++){
+            Neuron *neuron = &layer->neurons[i];
+            
+            // Load weights
+            fread(neuron->weights, sizeof(float), l == 0 ? nn->num_input : layer->num_neurons, file);
+            
+            // Load bias
+            fread(&neuron->bias, sizeof(float), 1, file);
+        }
+    }
+
+    fclose(file);
+    return 0;
+}
+
+
 

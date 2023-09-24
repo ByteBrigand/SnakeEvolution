@@ -46,8 +46,8 @@ int rendering = 1;
 
 // neural network architecture
 int num_input = SRCH_SIZE*SRCH_SIZE;
-int num_hidden1 = 7;
-int num_hidden2 = 6;
+int num_hidden1 = 4;
+int num_hidden2 = 3;
 int num_output = 5;
 
 float mutationRate = 0.2;
@@ -387,32 +387,21 @@ float randomFloatInRange(float range){
 }
 
 void saveNeuralNetworks(){
-    FILE *file = fopen("neural_networks_save.dat", "wb");
-    if(!file){
-        fprintf(stderr, "Could not open file for saving neural networks\n");
-        return;
-    }
-    
     for(int s = 0; s < SNAKE_COUNT; s++){
-        fwrite(&(snakes[s].brain), sizeof(NeuralNetwork), 1, file);
+        char filename[20];
+        sprintf(filename, "S%d.dat", s);
+        saveWeightsToFile(&(snakes[s].brain), filename);
     }
     
-    fclose(file);
     printf("Neural networks saved to file.\n");
 }
 
-void loadNeuralNetworks(){
-    FILE *file = fopen("neural_networks_save.dat", "rb");
-    if(!file){
-        fprintf(stderr, "Could not open file for loading neural networks\n");
-        return;
-    }
-    
+void loadNeuralNetworks(){    
     for(int s = 0; s < SNAKE_COUNT; s++){
-        // Assuming the NeuralNetwork structure and its components are trivially copyable
-        fread(&(snakes[s].brain), sizeof(NeuralNetwork), 1, file);
+        char filename[20];
+        sprintf(filename, "S%d.dat", s);
+        loadWeightsFromFile(&(snakes[s].brain), filename);
     }
-    
-    fclose(file);
+
     printf("Neural networks loaded from file.\n");
 }
