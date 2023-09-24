@@ -67,7 +67,7 @@ void saveNeuralNetworks();
 void loadNeuralNetworks();
 
 
-int main(void) {
+int main(void){
     srand((unsigned int)(time(NULL) + getpid()));
     SDL_Window *window = NULL;
     SDL_Renderer *renderer = NULL;
@@ -79,10 +79,10 @@ int main(void) {
     initializeSnakes();
     u32 startTime = SDL_GetTicks();
     int running = 1;
-    while (running) {
+    while (running){
         handleEvents(&running);
         updateGameLogic(startTime);
-        if (rendering) {
+        if(rendering){
             renderGame(renderer, font);
             SDL_Delay(10);
         }
@@ -103,17 +103,17 @@ int main(void) {
 
 
 
-void updateGameLogic(u32 startTime) {
+void updateGameLogic(u32 startTime){
     static u32 lastEvolveTime = 0;
     u32 currentTime = SDL_GetTicks();
 
-    if(currentTime - lastEvolveTime >= EVOLVE_TIME) {
+    if(currentTime - lastEvolveTime >= EVOLVE_TIME){
         evolveSnakes();
         lastEvolveTime = currentTime;
     }
 
-    for (u8 s = 0; s < SNAKE_COUNT; s++) {
-        if (map[snakes[s].position.x][snakes[s].position.y] == 1) {
+    for(u8 s = 0; s < SNAKE_COUNT; s++){
+        if(map[snakes[s].position.x][snakes[s].position.y] == 1){
             snakes[s].foodsEaten++;
             foodExisting--;
             map[snakes[s].position.x][snakes[s].position.y] = 0;
@@ -123,39 +123,48 @@ void updateGameLogic(u32 startTime) {
     }
 }
 
-void initializeSnakes() {
-    for(u8 s = 0; s < SNAKE_COUNT; s++) {
-        snakes[s].position.x = (MAP_SIZE * .1) + (MAP_SIZE * .8) / (s + 1);
-        snakes[s].position.y = (MAP_SIZE * .1) + (MAP_SIZE * .8) / (s + 1);
+void initializeSnakes(){
+    for(u8 s = 0; s < SNAKE_COUNT; s++){
+        u8 rectWidth = MAP_SIZE * 0.2;
+        u8 rectHeight = MAP_SIZE * 0.2;
+
+        u8 minX = (MAP_SIZE - rectWidth) / 2;
+        u8 minY = (MAP_SIZE - rectHeight) / 2;
+
+        snakes[s].position.x = minX + rand() % rectWidth;
+        snakes[s].position.y = minY + rand() % rectHeight;
+
         snakes[s].touchWall = false;
         snakes[s].foodsEaten = 0;
+
         if(!snakes[s].firstInit){
             snakes[s].brain = createNeuralNetwork(num_input, num_hidden1, num_hidden2, num_output);
             snakes[s].firstInit = true;
         }
+
         mutateNeuralNetwork(&(snakes[s].brain), mutationRate, mutationMagnitude);
     }
 }
 
-void evolveSnakes() {
+void evolveSnakes(){
     u8 bestSnakeIndex = 0;
     u16 maxFoodEaten = 0;
-    for(u8 s = 0; s < SNAKE_COUNT; s++) {
-        if(!snakes[s].touchWall && snakes[s].foodsEaten > maxFoodEaten) {
+    for(u8 s = 0; s < SNAKE_COUNT; s++){
+        if(!snakes[s].touchWall && snakes[s].foodsEaten > maxFoodEaten){
             maxFoodEaten = snakes[s].foodsEaten;
             bestSnakeIndex = s;
         }
         snakes[s].foodsEaten = 0;
     }
-    if(maxFoodEaten != 0) {
-        for(u8 s = 0; s < SNAKE_COUNT; s++) {
-            if(s != bestSnakeIndex) {
-                memcpy(&(snakes[s].brain), &(snakes[bestSnakeIndex].brain), sizeof(NeuralNetwork));
+    if(maxFoodEaten != 0){
+        for(u8 s = 0; s < SNAKE_COUNT; s++){
+            if(s != bestSnakeIndex){
+                copyWeights(&(snakes[s].brain), &(snakes[bestSnakeIndex].brain));
             }
         }
     }else{
-        for(u8 s = 0; s < SNAKE_COUNT; s++) {
-            if(s != bestSnakeIndex) {
+        for(u8 s = 0; s < SNAKE_COUNT; s++){
+            if(s != bestSnakeIndex){
                 mutateNeuralNetwork(&(snakes[s].brain), mutationRate*2, mutationMagnitude*2);
             }
         }
@@ -163,7 +172,7 @@ void evolveSnakes() {
     initializeSnakes();
 }
 
-void moveSnake(int s) {
+void moveSnake(int s){
     int8_t vision[SRCH_SIZE*SRCH_SIZE] = {0};
     int action = 0;
 
@@ -186,7 +195,7 @@ void moveSnake(int s) {
 
     //printf(" action snake %d : %d \n", s, action);
 
-    switch(action) {
+    switch(action){
         case 0: // do nothing
             break;
         case 1: // up
@@ -208,7 +217,7 @@ void moveSnake(int s) {
 }
 
 void spawnWalls(){
-    for(u16 i = 0; i < MAP_SIZE; i++) {
+    for(u16 i = 0; i < MAP_SIZE; i++){
         map[0][i] = -1;
         map[MAP_SIZE-1][i] = -1;
         map[i][0] = -1;
@@ -217,7 +226,7 @@ void spawnWalls(){
 }
 
 void spawnFoods(){
-    for(u16 i = foodExisting; i < FOOD_COUNT; i++) {
+    for(u16 i = foodExisting; i < FOOD_COUNT; i++){
         map[rand() % MAP_SIZE][rand() % MAP_SIZE] = 1;
         foodExisting++;
     }
@@ -226,15 +235,15 @@ void spawnFoods(){
 
 
 
-void renderGame(SDL_Renderer* renderer, TTF_Font* font) {
+void renderGame(SDL_Renderer* renderer, TTF_Font* font){
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 
 
     SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-    for(int i = 0; i < MAP_SIZE; i++) {
-        for(int j = 0; j < MAP_SIZE; j++) {
-            if(map[i][j] == 1) {
+    for(int i = 0; i < MAP_SIZE; i++){
+        for(int j = 0; j < MAP_SIZE; j++){
+            if(map[i][j] == 1){
                 SDL_Rect foodRect = {j, i, 2, 2};
                 SDL_RenderFillRect(renderer, &foodRect);
             }
@@ -242,7 +251,7 @@ void renderGame(SDL_Renderer* renderer, TTF_Font* font) {
     }
 
 
-    for (int s = 0; s < SNAKE_COUNT; s++) {
+    for(int s = 0; s < SNAKE_COUNT; s++){
         SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
         SDL_Rect snakeRect = { snakes[s].position.x, snakes[s].position.y, 3, 3 };
         SDL_RenderFillRect(renderer, &snakeRect);
@@ -280,14 +289,14 @@ void renderGame(SDL_Renderer* renderer, TTF_Font* font) {
     SDL_RenderPresent(renderer);
 }
 
-void handleEvents(int* running) {
+void handleEvents(int* running){
     SDL_Event e;
-    while (SDL_PollEvent(&e)) {
-        if (e.type == SDL_QUIT) {
+    while (SDL_PollEvent(&e)){
+        if(e.type == SDL_QUIT){
             *running = 0;
         }
-        else if (e.type == SDL_KEYDOWN) {
-            switch (e.key.keysym.sym) {
+        else if(e.type == SDL_KEYDOWN){
+            switch (e.key.keysym.sym){
                 case SDLK_UP:
                     mutationRate += 0.01;
                     break;
@@ -327,20 +336,20 @@ void handleEvents(int* running) {
 
 
 
-bool init_SDL(SDL_Window** window, SDL_Renderer** renderer, TTF_Font** font) {
-    if (SDL_Init(SDL_INIT_VIDEO) != 0) {
+bool init_SDL(SDL_Window** window, SDL_Renderer** renderer, TTF_Font** font){
+    if(SDL_Init(SDL_INIT_VIDEO) != 0){
         fprintf(stderr, "Could not initialize SDL: %s\n", SDL_GetError());
         return true;
     }
 
-    if (TTF_Init() != 0) {
+    if(TTF_Init() != 0){
         fprintf(stderr, "Could not initialize SDL_ttf: %s\n", TTF_GetError());
         SDL_Quit();
         return true;
     }
 
     *window = SDL_CreateWindow("Snake Evolution Game", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, MAP_SIZE, MAP_SIZE, SDL_WINDOW_SHOWN);
-    if (!(*window)) {
+    if(!(*window)){
         fprintf(stderr, "Could not create window: %s\n", SDL_GetError());
         TTF_Quit();
         SDL_Quit();
@@ -348,7 +357,7 @@ bool init_SDL(SDL_Window** window, SDL_Renderer** renderer, TTF_Font** font) {
     }
 
     *renderer = SDL_CreateRenderer(*window, -1, SDL_RENDERER_ACCELERATED);
-    if (!(*renderer)) {
+    if(!(*renderer)){
         SDL_DestroyWindow(*window);
         fprintf(stderr, "Could not create renderer: %s\n", SDL_GetError());
         TTF_Quit();
@@ -357,7 +366,7 @@ bool init_SDL(SDL_Window** window, SDL_Renderer** renderer, TTF_Font** font) {
     }
 
     *font = TTF_OpenFont("Arial.ttf", 24);
-    if (!(*font)) {
+    if(!(*font)){
         SDL_DestroyRenderer(*renderer);
         SDL_DestroyWindow(*window);
         fprintf(stderr, "Could not load font: %s\n", TTF_GetError());
@@ -371,20 +380,20 @@ bool init_SDL(SDL_Window** window, SDL_Renderer** renderer, TTF_Font** font) {
 
 
 // Function to generate a random float between -range and range
-float randomFloatInRange(float range) {
+float randomFloatInRange(float range){
     int randInt = rand() % 1001;
     float randFloat = (randInt / 1000.0) * (2 * range) - range;
     return randFloat;
 }
 
-void saveNeuralNetworks() {
+void saveNeuralNetworks(){
     FILE *file = fopen("neural_networks_save.dat", "wb");
-    if (!file) {
+    if(!file){
         fprintf(stderr, "Could not open file for saving neural networks\n");
         return;
     }
     
-    for (int s = 0; s < SNAKE_COUNT; s++) {
+    for(int s = 0; s < SNAKE_COUNT; s++){
         fwrite(&(snakes[s].brain), sizeof(NeuralNetwork), 1, file);
     }
     
@@ -392,14 +401,14 @@ void saveNeuralNetworks() {
     printf("Neural networks saved to file.\n");
 }
 
-void loadNeuralNetworks() {
+void loadNeuralNetworks(){
     FILE *file = fopen("neural_networks_save.dat", "rb");
-    if (!file) {
+    if(!file){
         fprintf(stderr, "Could not open file for loading neural networks\n");
         return;
     }
     
-    for (int s = 0; s < SNAKE_COUNT; s++) {
+    for(int s = 0; s < SNAKE_COUNT; s++){
         // Assuming the NeuralNetwork structure and its components are trivially copyable
         fread(&(snakes[s].brain), sizeof(NeuralNetwork), 1, file);
     }
