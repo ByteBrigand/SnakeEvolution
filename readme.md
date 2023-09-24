@@ -1,6 +1,7 @@
 # Snake Evolution Game
 
-Snake Evolution Game is a simple evolutionary simulation of snakes that learn to find and eat food using neural networks. The game is implemented in C and uses the SDL2 library for graphics and user input. Snakes have their neural networks evolved over time to improve their ability to find and consume food.
+Snake Evolution Game is a simple evolutionary simulation.
+Snakes' neural networks are not trained using machine learning techniques but rather evolve over time through genetic algorithms and natural selection based on their performance in finding and consuming food.
 
 ## Features
 
@@ -14,6 +15,13 @@ Snake Evolution Game is a simple evolutionary simulation of snakes that learn to
 
 - SDL2 (Simple DirectMedia Layer 2)
 - SDL2_ttf (SDL TrueType Font library)
+
+### Installation on debian (run as root or with sudo)
+
+   ```bash
+   apt-get update
+   apt-get install libsdl2-dev libsdl2-ttf-dev
+   ```
 
 
 ## Controls

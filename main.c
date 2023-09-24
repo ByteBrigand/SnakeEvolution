@@ -47,7 +47,7 @@ int rendering = 1;
 // neural network architecture
 int num_input = SRCH_SIZE*SRCH_SIZE;
 int num_hidden1 = 4;
-int num_hidden2 = 3;
+int num_hidden2 = 4;
 int num_output = 5;
 
 float mutationRate = 0.2;
