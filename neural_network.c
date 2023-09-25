@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <float.h>
 #include <immintrin.h> 
 
 float sigmoid(float x){
@@ -109,9 +110,26 @@ void forwardPassOptimized(NeuralNetwork *nn, int8_t *input, int *output){
 }
 
 
+
 void mutateNeuralNetwork(NeuralNetwork *nn, float rate, float magnitude){
     float mutateValue(float value, float magnitude){
         return value + (((float)rand() / RAND_MAX) * 2 - 1) * magnitude;
+    }
+    
+    void normalizeWeights(float *weights, int size){
+        float min = FLT_MAX;
+        float max = FLT_MIN;
+        for(int i = 0; i < size; i++){
+            if(weights[i] < min){
+                min = weights[i];
+            }
+            if(weights[i] > max){
+                max = weights[i];
+            }
+        }
+        for(int i = 0; i < size; i++){
+            weights[i] = (weights[i] - min) / (max - min);
+        }
     }
     
     Layer *layers[] = {&nn->hidden_layer1, &nn->hidden_layer2, &nn->output_layer};
@@ -125,11 +143,14 @@ void mutateNeuralNetwork(NeuralNetwork *nn, float rate, float magnitude){
                     neuron->weights[j] = mutateValue(neuron->weights[j], magnitude);
                 }
                 
+                normalizeWeights(neuron->weights, (l == 0 ? nn->num_input : layer->num_neurons));
+                
                 neuron->bias = mutateValue(neuron->bias, magnitude);
             }
         }
     }
 }
+
 
 int cleanupNeuralNetwork(NeuralNetwork *nn) {
     if(nn == NULL){
@@ -167,32 +188,23 @@ int cleanupNeuralNetwork(NeuralNetwork *nn) {
 
 
 
+#define COPY_LAYER_WEIGHTS(LAYER, SIZE) \
+    for(int i = 0; i < nn1->LAYER.num_neurons; i++){ \
+        nn2->LAYER.neurons[i].bias = nn1->LAYER.neurons[i].bias; \
+        for(int j = 0; j < SIZE; j++){ \
+            nn2->LAYER.neurons[i].weights[j] = nn1->LAYER.neurons[i].weights[j]; \
+        } \
+    }
+
 void copyWeights(NeuralNetwork *nn1, NeuralNetwork *nn2){
     if(nn1 == NULL || nn2 == NULL){
         fprintf(stderr, "One of the Neural Network pointers is NULL.\n");
         return;
     }
-    
-    for(int i = 0; i < nn1->hidden_layer1.num_neurons; i++){
-        nn2->hidden_layer1.neurons[i].bias = nn1->hidden_layer1.neurons[i].bias;
-        for(int j = 0; j < nn1->num_input; j++){
-            nn2->hidden_layer1.neurons[i].weights[j] = nn1->hidden_layer1.neurons[i].weights[j];
-        }
-    }
 
-    for(int i = 0; i < nn1->hidden_layer2.num_neurons; i++){
-        nn2->hidden_layer2.neurons[i].bias = nn1->hidden_layer2.neurons[i].bias;
-        for(int j = 0; j < nn1->hidden_layer1.num_neurons; j++){
-            nn2->hidden_layer2.neurons[i].weights[j] = nn1->hidden_layer2.neurons[i].weights[j];
-        }
-    }
-
-    for(int i = 0; i < nn1->output_layer.num_neurons; i++){
-        nn2->output_layer.neurons[i].bias = nn1->output_layer.neurons[i].bias;
-        for(int j = 0; j < nn1->hidden_layer2.num_neurons; j++){
-            nn2->output_layer.neurons[i].weights[j] = nn1->output_layer.neurons[i].weights[j];
-        }
-    }
+    COPY_LAYER_WEIGHTS(hidden_layer1, nn1->num_input);
+    COPY_LAYER_WEIGHTS(hidden_layer2, nn1->hidden_layer1.num_neurons);
+    COPY_LAYER_WEIGHTS(output_layer, nn1->hidden_layer2.num_neurons);
 }
 
 int saveWeightsToFile(NeuralNetwork *nn, const char *filename){

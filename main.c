@@ -17,6 +17,7 @@
 #define SNAKE_COUNT 9
 #define NEURON_COUNT 5
 #define EVOLVE_TIME 60000
+#define RENDER_DELAY 10
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
@@ -44,6 +45,9 @@ u16 foodExisting = 0;
 u16 evolutionEvents = 0;
 Snake snakes[SNAKE_COUNT];
 int rendering = 1;
+SDL_Texture* snakeTextures[SNAKE_COUNT];
+SDL_Texture* foodTexture;
+bool isTextChanged = true;
 
 
 // neural network architecture
@@ -75,13 +79,14 @@ int main(void){
     SDL_Renderer *renderer = NULL;
     TTF_Font* font = NULL;
     if(init_SDL(&window, &renderer, &font)) return 1;
+    
 
     spawnWalls();
     spawnFoods();
     initializeSnakes();
     u32 startTime = SDL_GetTicks();
     int running = 1;
-    while (running){
+    while(running){
         handleEvents(&running);
         updateGameLogic(startTime);
         if(rendering){
@@ -339,6 +344,11 @@ void handleEvents(int* running){
                     break;
                 case SDLK_e:
                     evolveSnakes();
+                    break;
+                case SDLK_m:
+                    for(u8 s = 0; s < SNAKE_COUNT; s++){
+                        mutateNeuralNetwork(&(snakes[s].brain), mutationRate, mutationMagnitude);
+                    }
                     break;
                 case SDLK_q:
                     *running = 0;
