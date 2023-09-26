@@ -2,6 +2,7 @@
 
 Snake Evolution Game is a simple evolutionary simulation.
 Snakes' neural networks are not trained using machine learning techniques but rather evolve over time through genetic algorithms and natural selection based on their performance in finding and consuming food.
+Since it can take a very long time to see some intelligence, a simulator is included that allows for the use of backpropagation.
 
 ## Features
 
